@@ -41,3 +41,6 @@ pulsequeue:
       metrics-aggregated: metrics.aggregated
   alerting:
     enabled: true
+  aws:
+    s3:
+      archival-enabled: true
