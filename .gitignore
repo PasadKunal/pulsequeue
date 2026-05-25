@@ -1,0 +1,33 @@
+# Maven
+target/
+*.class
+*.jar
+*.war
+
+# IntelliJ / VS Code
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# Spring Boot
+application-local.yml
+application-secrets.yml
+
+# Environment / secrets
+.env
+*.env
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for frontend later)
+node_modules/
+dist/
+.next/
+
+# Logs
+*.log
+logs/
