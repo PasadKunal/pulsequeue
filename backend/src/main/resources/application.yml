@@ -18,3 +18,9 @@ logging:
   level:
     com.pulsequeue: DEBUG
     org.springframework.kafka: INFO
+
+pulsequeue:
+  kafka:
+    topics:
+      events-raw: events.raw
+      metrics-aggregated: metrics.aggregated
