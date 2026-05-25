@@ -11,6 +11,10 @@ spring:
         commit.interval.ms: 1000
         replication.factor: 1
         num.stream.threads: 1
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
 
 server:
   port: 8080
@@ -28,6 +32,7 @@ logging:
   level:
     com.pulsequeue: DEBUG
     org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
 
 pulsequeue:
   kafka:
