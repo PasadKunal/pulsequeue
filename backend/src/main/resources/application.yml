@@ -39,3 +39,5 @@ pulsequeue:
     topics:
       events-raw: events.raw
       metrics-aggregated: metrics.aggregated
+  alerting:
+    enabled: true
