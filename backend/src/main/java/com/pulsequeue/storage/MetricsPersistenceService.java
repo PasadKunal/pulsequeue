@@ -1,5 +1,6 @@
 package com.pulsequeue.storage;
 
+import com.pulsequeue.cache.MetricsCacheService;
 import com.pulsequeue.model.MetricAggregate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import java.time.Instant;
 public class MetricsPersistenceService {
 
     private final MetricAggregateRepository repository;
+    private final MetricsCacheService cacheService;
 
     @Transactional
     public void persist(MetricAggregate aggregate) {
@@ -31,7 +33,9 @@ public class MetricsPersistenceService {
             .build();
 
         repository.save(entity);
-        log.info("Persisted metric aggregate: service={} window={} p99={}ms",
+        cacheService.cacheLatest(entity);
+
+        log.info("Persisted and cached metric aggregate: service={} window={} p99={}ms",
             entity.getServiceId(),
             entity.getWindowStart(),
             entity.getP99()
