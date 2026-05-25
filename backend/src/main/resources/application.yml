@@ -1,6 +1,16 @@
 spring:
   application:
     name: pulsequeue
+  kafka:
+    streams:
+      application-id: pulsequeue-streams
+      replication-factor: 1
+      properties:
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        default.value.serde: org.springframework.kafka.support.serializer.JsonSerde
+        commit.interval.ms: 1000
+        replication.factor: 1
+        num.stream.threads: 1
 
 server:
   port: 8080
