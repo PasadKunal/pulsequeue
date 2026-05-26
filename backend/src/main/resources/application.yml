@@ -46,3 +46,5 @@ pulsequeue:
       archival-enabled: true
     sqs:
       dlq-enabled: true
+    cloudwatch:
+      enabled: true

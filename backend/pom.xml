@@ -98,6 +98,13 @@
             <artifactId>sqs</artifactId>
             <version>2.25.11</version>
         </dependency>
+
+        <!-- AWS SDK v2 - CloudWatch -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudwatch</artifactId>
+            <version>2.25.11</version>
+        </dependency>
     </dependencies>
 
     <build>
