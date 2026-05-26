@@ -44,3 +44,5 @@ pulsequeue:
   aws:
     s3:
       archival-enabled: true
+    sqs:
+      dlq-enabled: true

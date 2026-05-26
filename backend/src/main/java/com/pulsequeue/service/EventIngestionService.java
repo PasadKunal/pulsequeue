@@ -1,5 +1,6 @@
 package com.pulsequeue.service;
 
+import com.pulsequeue.aws.SqsDlqService;
 import com.pulsequeue.model.IngestEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import java.util.List;
 public class EventIngestionService {
 
     private final KafkaTemplate<String, IngestEvent> kafkaTemplate;
+    private final SqsDlqService sqsDlqService;
 
     @Value("${pulsequeue.kafka.topics.events-raw}")
     private String eventsRawTopic;
@@ -27,6 +29,7 @@ public class EventIngestionService {
                     if (ex != null) {
                         log.error("Failed to produce event to Kafka: source={} error={}",
                             event.getSourceId(), ex.getMessage());
+                        sqsDlqService.sendToDlq(event, ex.getMessage());
                     } else {
                         log.debug("Produced event to Kafka: source={} partition={} offset={}",
                             event.getSourceId(),
