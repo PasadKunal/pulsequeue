@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build backend JAR
+        run: mvn package -DskipTests -q
+        working-directory: backend
+
+      - name: Compile Gatling simulations
+        run: mvn test-compile -q
+        working-directory: gatling
+
+      - name: Build Docker image
+        run: docker build -t pulsequeue:${{ github.sha }} .
+        working-directory: backend
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulsequeue-jar-${{ github.sha }}
+          path: backend/target/*.jar
+          retention-days: 7
