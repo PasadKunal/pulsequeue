@@ -26,6 +26,11 @@ public class MetricAggregate {
     private long p95;
     private long p99;
 
+    private double zScoreP99;
+    private double zScoreErrorRate;
+    private boolean anomalyDetected;
+    private String anomalyReason;
+
     @Builder.Default
     private List<Long> latencies = new ArrayList<>();
 

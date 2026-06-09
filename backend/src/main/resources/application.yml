@@ -39,6 +39,7 @@ pulsequeue:
     topics:
       events-raw: events.raw
       metrics-aggregated: metrics.aggregated
+      anomalies: metrics.anomalies
   alerting:
     enabled: true
   aws:

@@ -47,4 +47,30 @@ public class SlackNotifier {
             log.error("Failed to send Slack alert: {}", e.getMessage());
         }
     }
+
+    public void sendAnomaly(String serviceId, double zScoreP99, double zScoreErrorRate, String reason) {
+        if (webhookUrl == null || webhookUrl.isBlank()) {
+            log.warn("Slack webhook URL not configured - skipping anomaly notification");
+            return;
+        }
+
+        String text = String.format(
+            ":rotating_light: *PulseQueue Anomaly Detected*\n" +
+            ">*Service:* %s\n" +
+            ">*p99 z-score:* %.2f\n" +
+            ">*error_rate z-score:* %.2f\n" +
+            ">*Reason:* %s\n",
+            serviceId, zScoreP99, zScoreErrorRate, reason
+        );
+
+        try {
+            restTemplate.postForObject(webhookUrl, Map.of("text", text), String.class);
+            log.info("Slack anomaly alert sent: service={} zP99={} zErr={}",
+                serviceId,
+                String.format("%.2f", zScoreP99),
+                String.format("%.2f", zScoreErrorRate));
+        } catch (Exception e) {
+            log.error("Failed to send Slack anomaly alert: {}", e.getMessage());
+        }
+    }
 }

@@ -1,11 +1,14 @@
 package com.pulsequeue.kafka;
 
+import com.pulsequeue.anomaly.AnomalyState;
+import com.pulsequeue.anomaly.ZScoreProcessor;
 import com.pulsequeue.model.IngestEvent;
 import com.pulsequeue.model.MetricAggregate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.state.Stores;
 import org.apache.kafka.streams.state.WindowStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,16 +29,28 @@ public class MetricsStreamProcessor {
     @Value("${pulsequeue.kafka.topics.metrics-aggregated}")
     private String metricsAggregatedTopic;
 
+    @Value("${pulsequeue.kafka.topics.anomalies}")
+    private String anomaliesTopic;
+
     @Bean
     public KStream<String, IngestEvent> metricsStream(StreamsBuilder streamsBuilder) {
 
         JsonSerde<IngestEvent> eventSerde = new JsonSerde<>(IngestEvent.class);
         JsonSerde<MetricAggregate> aggregateSerde = new JsonSerde<>(MetricAggregate.class);
+        JsonSerde<AnomalyState> anomalyStateSerde = new JsonSerde<>(AnomalyState.class);
+
+        streamsBuilder.addStateStore(
+            Stores.keyValueStoreBuilder(
+                Stores.persistentKeyValueStore(ZScoreProcessor.STORE_NAME),
+                Serdes.String(),
+                anomalyStateSerde
+            ).withLoggingDisabled()
+        );
 
         KStream<String, IngestEvent> eventStream = streamsBuilder
             .stream(eventsRawTopic, Consumed.with(Serdes.String(), eventSerde));
 
-        eventStream
+        KStream<String, MetricAggregate> enrichedStream = eventStream
             .groupByKey()
             .windowedBy(
                 TimeWindows.ofSizeAndGrace(Duration.ofMinutes(1), Duration.ofSeconds(10))
@@ -72,7 +87,15 @@ public class MetricsStreamProcessor {
                 }
             })
             .selectKey((windowedKey, aggregate) -> windowedKey.key())
-            .to(metricsAggregatedTopic, Produced.with(Serdes.String(), aggregateSerde));
+            .processValues(ZScoreProcessor::new, ZScoreProcessor.STORE_NAME);
+
+        // All aggregates (with z-scores) flow to the main topic for persistence
+        enrichedStream.to(metricsAggregatedTopic, Produced.with(Serdes.String(), aggregateSerde));
+
+        // Anomalous aggregates also branch to the anomalies topic for real-time alerting
+        enrichedStream
+            .filter((serviceId, aggregate) -> aggregate != null && aggregate.isAnomalyDetected())
+            .to(anomaliesTopic, Produced.with(Serdes.String(), aggregateSerde));
 
         return eventStream;
     }
