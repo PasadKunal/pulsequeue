@@ -13,7 +13,8 @@ RUN mvn package -DskipTests -q
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S pulsequeue && adduser -S pulsequeue -G pulsequeue
+RUN apk add --no-cache libstdc++ && \
+    addgroup -S pulsequeue && adduser -S pulsequeue -G pulsequeue
 
 COPY --from=build /app/target/*.jar app.jar
 RUN chown pulsequeue:pulsequeue app.jar
