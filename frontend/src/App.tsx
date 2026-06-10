@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-const API_BASE = ""
+const API_BASE = import.meta.env.VITE_API_URL ?? ""
 
 interface DataPoint {
   windowStart: string
@@ -32,7 +32,6 @@ const formatTime = (iso: string) => {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
 }
 
-const formatPct = (v: number) => `${(v * 100).toFixed(1)}%`
 
 function MetricCard({ label, value, unit = 'ms' }: { label: string; value: number; unit?: string }) {
   return (
