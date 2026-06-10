@@ -12,44 +12,44 @@ A distributed event streaming and observability platform. Services POST raw even
 
 ```
 POST /v1/events
-      │
-┌─────▼────────────┐
-│  Spring Boot API  │  batch validation · timestamp enrichment
-└─────┬─────────────┘
-      │ produce (keyed by sourceId)
-      ▼
-┌─────────────────┐
-│  Redpanda Cloud  │  events.raw  (3 partitions)
-└─────┬───────────┘
-      │
-      ▼
-┌──────────────────────────────────────────┐
-│           Kafka Streams                  │
-│  • 1-min tumbling windows (10s grace)    │
-│  • p50 / p95 / p99 via percentile sort   │
-│  • Welford online z-score (p99, errRate) │
-└───────┬───────────────────┬──────────────┘
-        │                   │ anomalyDetected=true
-  metrics.aggregated   metrics.anomalies
-        │                   │
-┌───────▼──────┐    ┌───────▼──────┐
-│MetricsConsumer│    │AnomalyConsumer│──► Slack alert
-└───────┬──────┘    └──────────────┘
-        │
-┌───────▼──────────────┐
-│  TimescaleDB (Neon)  │  hypertable partitioned by window_start
-└───────┬──────────────┘
-        │
-┌───────▼──────┐    ┌─────────────────────────────────┐
-│ Redis Cache  │    │  AWS side-channels               │
-│ (Upstash)    │    │  S3  — hourly GZip → Glacier 90d │
-└───────┬──────┘    │  SQS — DLQ + recovery worker     │
-        │           │  CloudWatch — custom metrics      │
-        │           └─────────────────────────────────┘
-        │ SSE every 5s
-┌───────▼──────┐
-│ React/Vite   │  Recharts p50/p95/p99 line charts · auto-reconnect
-└──────────────┘
+       |
+  +-----------------+
+  | Spring Boot API |  batch validation, timestamp enrichment
+  +--------+--------+
+           | produce (keyed by sourceId)
+           v
+  +------------------+
+  |  Redpanda Cloud  |  events.raw (3 partitions)
+  +--------+---------+
+           |
+           v
+  +--------------------------------------------+
+  |              Kafka Streams                 |
+  |  - 1-min tumbling windows (10s grace)      |
+  |  - p50 / p95 / p99 via percentile sort     |
+  |  - Welford online z-score (p99, errRate)   |
+  +----------+-------------------------+--------+
+             |                         | anomalyDetected=true
+    metrics.aggregated          metrics.anomalies
+             |                         |
+  +----------+---------+    +----------+----------+
+  |   MetricsConsumer  |    |  AnomalyConsumer    +---> Slack alert
+  +----------+---------+    +---------------------+
+             |
+  +----------+-------------+
+  |  TimescaleDB (Neon)    |  hypertable partitioned by window_start
+  +----------+-------------+
+             |
+  +----------+------+    +----------------------------------+
+  |  Redis Cache    |    |  AWS side-channels               |
+  |  (Upstash)      |    |  S3  - hourly GZip -> Glacier 90d|
+  +----------+------+    |  SQS - DLQ + recovery worker     |
+             |           |  CloudWatch - custom metrics      |
+             |           +----------------------------------+
+             | SSE every 5s
+  +----------+------+
+  |  React / Vite   |  Recharts p50/p95/p99 line charts, auto-reconnect
+  +-----------------+
 ```
 
 ---
