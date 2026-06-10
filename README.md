@@ -1,6 +1,8 @@
 # PulseQueue
 
-![CI](https://github.com/kunalpasad/pulsequeue/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/PasadKunal/pulsequeue/actions/workflows/ci.yml/badge.svg)
+
+**Live:** [pulsequeue-mu.vercel.app](https://pulsequeue-mu.vercel.app) &nbsp;|&nbsp; API: [pulsequeue-f1e3.onrender.com](https://pulsequeue-f1e3.onrender.com/actuator/health)
 
 A distributed event streaming and observability platform. Services POST raw events; Kafka Streams aggregates them into 1-minute windows computing p50/p95/p99 latency and error rate per service; a Welford online algorithm detects statistical anomalies in real time; results are persisted to TimescaleDB and surfaced on a live React dashboard via SSE.
 
@@ -203,6 +205,24 @@ docker run -p 8080:8080 \
   -v $(pwd)/src/main/resources/application-local.yml:/app/config/application-local.yml \
   pulsequeue
 ```
+
+---
+
+## Deployment
+
+### Backend — Render
+
+1. New Web Service → connect `PasadKunal/pulsequeue`, root directory `backend`
+2. Runtime: **Docker** (uses `backend/Dockerfile`)
+3. Add environment variables for all secrets (same keys as `application-local.yml`, using `SPRING_` prefix for Spring properties or `PULSEQUEUE_` for custom ones), plus `SPRING_PROFILES_ACTIVE=prod`
+4. Deploy — Kafka Streams boots in ~60s, health check at `/actuator/health`
+
+### Frontend — Vercel
+
+1. New Project → import `PasadKunal/pulsequeue`, root directory `frontend`
+2. Framework: **Vite** (auto-detected)
+3. Add environment variable: `VITE_API_URL` = `https://pulsequeue-f1e3.onrender.com`
+4. Deploy — builds in ~30s, auto-deploys on every push to `main`
 
 ---
 
