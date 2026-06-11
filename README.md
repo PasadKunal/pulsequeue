@@ -83,6 +83,54 @@ POST /v1/events
 | Frontend | React 18, Vite, Recharts |
 | Load testing | Gatling 3.9 |
 | CI/CD | GitHub Actions + Docker multi-stage build |
+| Client SDK | Spring Boot starter (auto-instruments any Spring MVC service) |
+
+---
+
+## SDK
+
+Any Spring Boot (MVC) service can report to PulseQueue with two steps and no boilerplate code.
+
+**1. Install the starter to your local Maven repo** (from the `sdk/` directory):
+
+```bash
+cd sdk && mvn install
+```
+
+**2. Add the dependency to your service:**
+
+```xml
+<dependency>
+    <groupId>com.pulsequeue</groupId>
+    <artifactId>pulsequeue-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+**3. Add two lines to `application.yml`:**
+
+```yaml
+pulsequeue:
+  endpoint: https://pulsequeue-f1e3.onrender.com
+  service-name: payment-svc
+```
+
+That's it. A servlet filter intercepts every request, measures latency, and batches events to PulseQueue asynchronously. The host service is never blocked, and if PulseQueue is unreachable, events are quietly dropped rather than causing failures.
+
+Additional options:
+
+```yaml
+pulsequeue:
+  endpoint: https://pulsequeue-f1e3.onrender.com
+  service-name: payment-svc
+  api-key: your-key                  # optional, sent as X-Api-Key
+  batch-size: 50                     # flush after this many events (default 50)
+  flush-interval-seconds: 5          # flush every N seconds (default 5)
+  exclude-paths:                     # paths to skip, prefix-matched
+    - /actuator
+    - /health
+  enabled: false                     # set to false to disable without removing the dependency
+```
 
 ---
 
