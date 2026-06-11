@@ -89,25 +89,26 @@ POST /v1/events
 
 ## SDK
 
-Any Spring Boot (MVC) service can report to PulseQueue with two steps and no boilerplate code.
+Any Spring Boot (MVC) service can report to PulseQueue with no boilerplate code.
 
-**1. Install the starter to your local Maven repo** (from the `sdk/` directory):
-
-```bash
-cd sdk && mvn install
-```
-
-**2. Add the dependency to your service:**
+**1. Add the JitPack repository and dependency to your service's `pom.xml`:**
 
 ```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
 <dependency>
-    <groupId>com.pulsequeue</groupId>
+    <groupId>com.github.PasadKunal.pulsequeue</groupId>
     <artifactId>pulsequeue-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>v1.0.0</version>
 </dependency>
 ```
 
-**3. Add two lines to `application.yml`:**
+**2. Add two lines to `application.yml`:**
 
 ```yaml
 pulsequeue:

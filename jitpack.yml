@@ -1,0 +1,5 @@
+jdk:
+  - openjdk21
+build:
+  commands:
+    - mvn install -pl sdk -DskipTests -q
