@@ -32,7 +32,13 @@ public class EventController {
                 .body(Map.of("error", "batch size exceeds maximum of 500 events"));
         }
 
-        ingestionService.ingest(events);
+        try {
+            ingestionService.ingest(events);
+        } catch (Exception e) {
+            log.error("Ingest failed: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", e.getClass().getSimpleName(), "message", e.getMessage() != null ? e.getMessage() : "null"));
+        }
 
         return ResponseEntity.ok(Map.of(
             "received", events.size(),
