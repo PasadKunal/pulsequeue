@@ -29,6 +29,8 @@ public class PulseQueueAutoConfiguration {
                 "pulsequeue.endpoint must be set. Example: pulsequeue.endpoint=https://pulsequeue-f1e3.onrender.com"
             );
         }
+        // Strip trailing slash so /v1/events appends cleanly regardless of how the URL was configured
+        props.setEndpoint(props.getEndpoint().replaceAll("/+$", ""));
         if (props.getServiceName() == null || props.getServiceName().isBlank()) {
             props.setServiceName(appName);
         }
