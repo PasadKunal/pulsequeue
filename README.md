@@ -4,7 +4,7 @@
 
 **Live:** [pulsequeue-mu.vercel.app](https://pulsequeue-mu.vercel.app) &nbsp;|&nbsp; API: [pulsequeue-f1e3.onrender.com](https://pulsequeue-f1e3.onrender.com/actuator/health)
 
-A distributed event streaming and observability platform. Services POST raw events; Kafka Streams aggregates them into 1-minute windows computing p50/p95/p99 latency and error rate per service; a Welford online algorithm detects statistical anomalies in real time; results are persisted to TimescaleDB and surfaced on a live React dashboard via SSE.
+PulseQueue is a distributed event streaming and observability platform. Services send raw events to a REST endpoint, Kafka Streams aggregates them into 1-minute windows to compute p50/p95/p99 latency and error rates, a Welford online algorithm flags statistical anomalies without storing history, and everything is pushed live to a React dashboard over SSE.
 
 ---
 
@@ -56,15 +56,15 @@ POST /v1/events
 
 ## Features
 
-- **Event ingestion** — batch POST endpoint with validation, timestamp normalization, and idempotent Kafka produce
-- **Stream processing** — Kafka Streams 1-minute tumbling windows with RocksDB state store; p50/p95/p99 computed from sorted latency arrays
-- **Anomaly detection** — Welford's online algorithm tracks running mean/variance per service without storing history; z-scores > 2.5σ on p99 or error rate trigger alerts
-- **Threshold alerting** — `@Scheduled` poller evaluates DB-backed alert rules every 30 seconds, fires Slack webhooks on breach
-- **Live dashboard** — Spring WebFlux SSE endpoint pushes aggregated metrics every 5 seconds to a React frontend with auto-reconnect
-- **Cold archival** — S3ArchivalService runs hourly, writes GZip-compressed JSON snapshots, Glacier lifecycle policy after 90 days
-- **Dead-letter queue** — failed Kafka produce events routed to SQS DLQ; `DlqRecoveryWorker` retries on a 60-second schedule
-- **Observability** — CloudWatch custom metrics: `EventsIngested` and `KafkaProduceLatency` per service
-- **Load tested** — Gatling 5-phase simulation (ramp → steady → peak → spike → cooldown); p95=148ms, 8,660 requests, 0 failures
+- **Event ingestion:** batch POST endpoint with validation, timestamp normalization, and idempotent Kafka produce
+- **Stream processing:** Kafka Streams 1-minute tumbling windows backed by a RocksDB state store; p50/p95/p99 computed from sorted latency arrays per window
+- **Anomaly detection:** Welford's online algorithm maintains a running mean and variance per service with no stored history; z-scores above 2.5 sigma on p99 or error rate trigger an alert
+- **Threshold alerting:** a scheduled poller checks DB-backed alert rules every 30 seconds and fires Slack webhooks when a threshold is breached
+- **Live dashboard:** a Spring WebFlux SSE endpoint pushes aggregated metrics every 5 seconds to a React frontend that reconnects automatically on disconnect
+- **Cold archival:** an hourly job writes GZip-compressed JSON snapshots to S3, with a Glacier lifecycle policy kicking in after 90 days
+- **Dead-letter queue:** failed Kafka produce events go to an SQS DLQ and a recovery worker retries them every 60 seconds
+- **Observability:** CloudWatch custom metrics for `EventsIngested` and `KafkaProduceLatency` per service
+- **Load tested:** Gatling 5-phase simulation (ramp, steady, peak, spike, cooldown) with p95=148ms across 8,660 requests and zero failures
 
 ---
 
@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/v1/events \
   ]'
 ```
 
-Wait ~70 seconds, then send again to advance the Kafka Streams watermark past the window grace period. Data appears on the dashboard within seconds of the first window emitting.
+Wait about 70 seconds, then send another batch to advance the Kafka Streams watermark past the window grace period. Data shows up on the dashboard within a few seconds of the first window closing.
 
 ### 5. Run the load test
 
@@ -179,7 +179,7 @@ cd gatling
 mvn gatling:test
 ```
 
-Report: `gatling/target/gatling/pulsequeue-*/index.html`
+Results land in `gatling/target/gatling/pulsequeue-*/index.html`.
 
 ---
 
@@ -188,9 +188,9 @@ Report: `gatling/target/gatling/pulsequeue-*/index.html`
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/v1/events` | Ingest a batch of events |
-| `GET` | `/v1/services` | List active services (last 24h) |
+| `GET` | `/v1/services` | List active services from the last 24 hours |
 | `GET` | `/v1/metrics?service=<id>&range=6h` | Metric history for a service |
-| `GET` | `/v1/dashboard/stream` | SSE stream — emits `metrics` events every 5s |
+| `GET` | `/v1/dashboard/stream` | SSE stream that pushes `metrics` events every 5 seconds |
 | `GET` | `/actuator/health` | Health check |
 
 ---
@@ -210,19 +210,19 @@ docker run -p 8080:8080 \
 
 ## Deployment
 
-### Backend — Render
+### Backend (Render)
 
-1. New Web Service → connect `PasadKunal/pulsequeue`, root directory `backend`
-2. Runtime: **Docker** (uses `backend/Dockerfile`)
-3. Add environment variables for all secrets (same keys as `application-local.yml`, using `SPRING_` prefix for Spring properties or `PULSEQUEUE_` for custom ones), plus `SPRING_PROFILES_ACTIVE=prod`
-4. Deploy — Kafka Streams boots in ~60s, health check at `/actuator/health`
+1. New Web Service, connect `PasadKunal/pulsequeue`, set root directory to `backend`
+2. Runtime: **Docker** (picks up `backend/Dockerfile` automatically)
+3. Add environment variables for all secrets (mirror the keys from `application-local.yml` using `SPRING_` prefix for Spring properties), plus `SPRING_PROFILES_ACTIVE=prod`
+4. Hit Deploy; Kafka Streams takes about 60 seconds to reach RUNNING state, health check is at `/actuator/health`
 
-### Frontend — Vercel
+### Frontend (Vercel)
 
-1. New Project → import `PasadKunal/pulsequeue`, root directory `frontend`
+1. New Project, import `PasadKunal/pulsequeue`, set root directory to `frontend`
 2. Framework: **Vite** (auto-detected)
 3. Add environment variable: `VITE_API_URL` = `https://pulsequeue-f1e3.onrender.com`
-4. Deploy — builds in ~30s, auto-deploys on every push to `main`
+4. Deploy; builds in about 30 seconds and auto-deploys on every push to `main`
 
 ---
 
@@ -232,4 +232,4 @@ GitHub Actions runs on every push to `main`:
 1. Build backend JAR (`mvn package -DskipTests`)
 2. Compile Gatling simulations (`mvn test-compile`)
 3. Build Docker image
-4. Upload JAR as build artifact
+4. Upload JAR as a build artifact
