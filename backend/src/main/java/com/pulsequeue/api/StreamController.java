@@ -27,6 +27,7 @@ public class StreamController {
             @RequestParam(defaultValue = "6h") String range) {
 
         return Flux.interval(Duration.ofSeconds(5))
+            .onBackpressureDrop()
             .map(tick -> {
                 Instant since = Instant.now().minus(6, ChronoUnit.HOURS);
 
