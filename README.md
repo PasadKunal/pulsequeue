@@ -2,9 +2,9 @@
 
 ![CI](https://github.com/PasadKunal/pulsequeue/actions/workflows/ci.yml/badge.svg)
 
-**Live:** [pulsequeue-mu.vercel.app](https://pulsequeue-mu.vercel.app) &nbsp;|&nbsp; API: [pulsequeue-f1e3.onrender.com](https://pulsequeue-f1e3.onrender.com/actuator/health)
+**Live demo:** [pulsequeue-mu.vercel.app](https://pulsequeue-mu.vercel.app) &nbsp;|&nbsp; **API health:** [pulsequeue-f1e3.onrender.com/actuator/health](https://pulsequeue-f1e3.onrender.com/actuator/health)
 
-PulseQueue is a distributed event streaming and observability platform. Services send raw events to a REST endpoint, Kafka Streams aggregates them into 1-minute windows to compute p50/p95/p99 latency and error rates, a Welford online algorithm flags statistical anomalies without storing history, and everything is pushed live to a React dashboard over SSE.
+PulseQueue is a distributed event streaming and observability platform. Services send raw HTTP telemetry to a REST endpoint, Kafka Streams aggregates it into 1-minute windows to compute p50/p95/p99 latency and error rates, a Welford online algorithm flags statistical anomalies without storing history, and everything is pushed live to a React dashboard over SSE.
 
 ---
 
@@ -60,11 +60,12 @@ POST /v1/events
 - **Stream processing:** Kafka Streams 1-minute tumbling windows backed by a RocksDB state store; p50/p95/p99 computed from sorted latency arrays per window
 - **Anomaly detection:** Welford's online algorithm maintains a running mean and variance per service with no stored history; z-scores above 2.5 sigma on p99 or error rate trigger an alert
 - **Threshold alerting:** a scheduled poller checks DB-backed alert rules every 30 seconds and fires Slack webhooks when a threshold is breached
-- **Live dashboard:** a Spring WebFlux SSE endpoint pushes aggregated metrics every 5 seconds to a React frontend that reconnects automatically on disconnect
+- **Live dashboard:** an SSE endpoint pushes aggregated metrics every 5 seconds to a React frontend that reconnects automatically on disconnect
 - **Cold archival:** an hourly job writes GZip-compressed JSON snapshots to S3, with a Glacier lifecycle policy kicking in after 90 days
 - **Dead-letter queue:** failed Kafka produce events go to an SQS DLQ and a recovery worker retries them every 60 seconds
 - **Observability:** CloudWatch custom metrics for `EventsIngested` and `KafkaProduceLatency` per service
-- **Load tested:** Gatling 5-phase simulation (ramp, steady, peak, spike, cooldown) with p95=148ms across 8,660 requests and zero failures
+- **Client SDK:** a Spring Boot starter that auto-instruments any Spring MVC service with a servlet filter
+- **Load tested:** Gatling 5-phase simulation (ramp, steady, peak, spike, cooldown) with p95 = 148ms across 8,660 requests and zero failures
 
 ---
 
@@ -72,7 +73,7 @@ POST /v1/events
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 21, Spring Boot 3.2, Spring Kafka, Spring WebFlux |
+| Backend | Java 21, Spring Boot 3.2, Spring Kafka |
 | Stream processing | Kafka Streams 3.6, RocksDB state store |
 | Message broker | Redpanda Cloud (Kafka-compatible) |
 | Hot storage | TimescaleDB on Neon PostgreSQL |
@@ -89,9 +90,9 @@ POST /v1/events
 
 ## SDK
 
-Any Spring Boot (MVC) service can report to PulseQueue with no boilerplate code.
+Any Spring Boot (MVC) service can report to PulseQueue with no boilerplate code. A servlet filter intercepts every request, measures latency, and batches events asynchronously. The host service is never blocked, and if PulseQueue is unreachable, events are quietly dropped.
 
-**1. Add the JitPack repository and dependency to your service's `pom.xml`:**
+**1. Add the JitPack repository and dependency to your `pom.xml`:**
 
 ```xml
 <repositories>
@@ -108,7 +109,7 @@ Any Spring Boot (MVC) service can report to PulseQueue with no boilerplate code.
 </dependency>
 ```
 
-**2. Add two lines to `application.yml`:**
+**2. Add two lines to your `application.yml`:**
 
 ```yaml
 pulsequeue:
@@ -116,15 +117,15 @@ pulsequeue:
   service-name: payment-svc
 ```
 
-That's it. A servlet filter intercepts every request, measures latency, and batches events to PulseQueue asynchronously. The host service is never blocked, and if PulseQueue is unreachable, events are quietly dropped rather than causing failures.
+That's all. Every HTTP request your service handles will automatically appear on the dashboard.
 
-Additional options:
+**All configuration options:**
 
 ```yaml
 pulsequeue:
   endpoint: https://pulsequeue-f1e3.onrender.com
   service-name: payment-svc
-  api-key: your-key                  # optional, sent as X-Api-Key
+  api-key: your-key                  # optional, sent as X-Api-Key header
   batch-size: 50                     # flush after this many events (default 50)
   flush-interval-seconds: 5          # flush every N seconds (default 5)
   exclude-paths:                     # paths to skip, prefix-matched
@@ -132,6 +133,37 @@ pulsequeue:
     - /health
   enabled: false                     # set to false to disable without removing the dependency
 ```
+
+---
+
+## Try it yourself
+
+The repo includes a demo Spring Boot service already wired up with the SDK. Run it locally to see events flowing into the live dashboard.
+
+**1. Install the SDK to your local Maven repo:**
+
+```bash
+cd sdk && mvn install -DskipTests -q
+```
+
+**2. Start the demo service:**
+
+```bash
+cd demo && mvn spring-boot:run
+```
+
+The demo points at the hosted Render backend, so you don't need to run the backend locally.
+
+**3. Hit the demo endpoints:**
+
+```bash
+curl http://localhost:9090/fast    # 10-50ms response
+curl http://localhost:9090/slow    # 400-700ms response
+curl http://localhost:9090/error   # returns HTTP 500
+curl http://localhost:9090/spike   # 2000-3000ms, good for triggering anomaly detection
+```
+
+Send a batch of requests, wait about 75 seconds for the Kafka Streams window to close, then send another batch. `demo-svc` will appear on the [live dashboard](https://pulsequeue-mu.vercel.app) with real latency charts.
 
 ---
 
@@ -205,7 +237,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-### 4. Send events
+### 4. Send a test event
 
 ```bash
 curl -X POST http://localhost:8080/v1/events \
@@ -217,11 +249,9 @@ curl -X POST http://localhost:8080/v1/events \
   ]'
 ```
 
-Wait about 70 seconds, then send another batch to advance the Kafka Streams watermark past the window grace period. Data shows up on the dashboard within a few seconds of the first window closing.
+Send another batch after 75 seconds to advance the Kafka Streams watermark past the window grace period. Data appears on the dashboard within a few seconds of the first window closing.
 
 ### 5. Run the load test
-
-With the backend running:
 
 ```bash
 cd gatling
@@ -236,10 +266,10 @@ Results land in `gatling/target/gatling/pulsequeue-*/index.html`.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/events` | Ingest a batch of events |
+| `POST` | `/v1/events` | Ingest a batch of events (max 500 per request) |
 | `GET` | `/v1/services` | List active services from the last 24 hours |
 | `GET` | `/v1/metrics?service=<id>&range=6h` | Metric history for a service |
-| `GET` | `/v1/dashboard/stream` | SSE stream that pushes `metrics` events every 5 seconds |
+| `GET` | `/v1/dashboard/stream` | SSE stream pushing `metrics` events every 5 seconds |
 | `GET` | `/actuator/health` | Health check |
 
 ---
@@ -263,21 +293,22 @@ docker run -p 8080:8080 \
 
 1. New Web Service, connect `PasadKunal/pulsequeue`, set root directory to `backend`
 2. Runtime: **Docker** (picks up `backend/Dockerfile` automatically)
-3. Add environment variables for all secrets (mirror the keys from `application-local.yml` using `SPRING_` prefix for Spring properties), plus `SPRING_PROFILES_ACTIVE=prod`
-4. Hit Deploy; Kafka Streams takes about 60 seconds to reach RUNNING state, health check is at `/actuator/health`
+3. Add environment variables for all secrets (mirror the keys from `application-local.yml` using the `SPRING_` prefix for Spring properties), plus `SPRING_PROFILES_ACTIVE=prod`
+4. Deploy. Kafka Streams takes about 60 seconds to reach RUNNING state. Health check is at `/actuator/health`
 
 ### Frontend (Vercel)
 
 1. New Project, import `PasadKunal/pulsequeue`, set root directory to `frontend`
 2. Framework: **Vite** (auto-detected)
-3. Add environment variable: `VITE_API_URL` = `https://pulsequeue-f1e3.onrender.com`
-4. Deploy; builds in about 30 seconds and auto-deploys on every push to `main`
+3. Add environment variable: `VITE_API_URL=https://pulsequeue-f1e3.onrender.com`
+4. Deploy. Builds in about 30 seconds and auto-deploys on every push to `main`
 
 ---
 
 ## CI
 
 GitHub Actions runs on every push to `main`:
+
 1. Build backend JAR (`mvn package -DskipTests`)
 2. Compile Gatling simulations (`mvn test-compile`)
 3. Build Docker image
