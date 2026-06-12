@@ -1,0 +1,10 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: demo-svc
+
+pulsequeue:
+  endpoint: https://pulsequeue-f1e3.onrender.com
+  service-name: demo-svc

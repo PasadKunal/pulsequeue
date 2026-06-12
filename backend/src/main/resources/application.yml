@@ -35,9 +35,9 @@ management:
 
 logging:
   level:
-    com.pulsequeue: DEBUG
-    org.springframework.kafka: INFO
-    org.hibernate.SQL: DEBUG
+    com.pulsequeue: INFO
+    org.springframework.kafka: WARN
+    org.hibernate.SQL: WARN
 
 pulsequeue:
   kafka:
